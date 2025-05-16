@@ -1,8 +1,8 @@
 .vscode/
-.build/
-.extern/glfw/
-.extern/glm/
-.extern/imgui/
+build/
+# extern/glfw/
+# extern/glm/
+# extern/imgui/
 
 
 # Prerequisites
