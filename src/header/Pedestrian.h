@@ -11,7 +11,7 @@
 class Pedestrian {
 public:
 	std::vector<float> vertices;
-	  Pedestrian(float radius, Vector3<float> position,char d,int number, unsigned int VBO) {
+	  Pedestrian(float radius, Vector3<float> position,char d,int number/*, unsigned int VBO*/) {
 		  this->radius = radius;
 		  segement = 100;
 		  this->position = position;
@@ -19,7 +19,8 @@ public:
 		  desired_speed = generategaussian(mean, standard_deviation);
 		  max_speed = 1.3 * desired_speed ;
 		  this->number = number;
-		  this->VBO = VBO;
+		  friend_number = nullptr;
+		//   this->VBO = VBO;
 		  prePosition.push_back(position);
 	  }
 	  std::vector<Goal> Goal;
@@ -34,7 +35,14 @@ public:
 	  Pedestrian* friend_number;
 	  std::vector<Wall* >attractive_wall;
 	  char friend_type = 'f';
-	  unsigned int VBO;
+	//   unsigned int VBO;
+	  glm::vec3 get_position() {
+		  glm::vec3 rt;
+		  rt.x = position.x();
+		  rt.y = position.y();
+		  rt.z = position.z();
+		  return rt;
+	  }
 private:
 
 	bool destroy=false;
