@@ -32,9 +32,21 @@ int max_height = 8;
 int max_width = 4;
 int maxp = 8 * (max_width - 1) + max_height;
 
+enum Scenario {
+    NORMAL,
+    BOTTLENECK,
+    ATTRACTION
+};
+enum FriendType {
+    WITHOUT_FRIEND,
+    WITH_FRIEND
+};
+
 int num = 0;
-int mode = 0;
+int mode = Scenario::NORMAL;
+int friend_mode = FriendType::WITHOUT_FRIEND; // 是否有朋友
 bool simu = false;
+
 
 Graphics* graphics;
 std::vector<float> vertices;
@@ -49,10 +61,10 @@ void processInput(GLFWwindow* window) {
         glfwSetWindowShouldClose(window, true);
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
         Reset();
-    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-        mode = (mode + 1) % 2;
-        Reset();
-    }
+    // if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+    //     mode = (mode + 1) % 2;
+    //     Reset();
+    // }
 }
 void All_Clear() {
     p_right.clear();
@@ -78,7 +90,8 @@ void Reset() {
             p_right.push_back(tempp);
             all_p.push_back(p_right[index]);
 
-            if (mode == 0)
+            // 中間的通道
+            if (mode == Scenario::BOTTLENECK)
                 p_right[index]->Goal.push_back(Goal(Vector3<float>(0, 0.85, 0), Vector3<float>(0, -0.85, 0)));
 
             p_right[index]->Goal.push_back(Goal(Vector3<float>(22, 9, 0), Vector3<float>(22, -9, 0)));
@@ -88,70 +101,33 @@ void Reset() {
             p_left.push_back(tempp);
             all_p.push_back(p_left[index]);
 
-            if (mode == 0)
+            if (mode == Scenario::BOTTLENECK)
                 p_left[index]->Goal.push_back(Goal(Vector3<float>(0, 0.85, 0), Vector3<float>(0, -0.85, 0)));
-            else {
-                if (num == 1)
-                    all_p[num]->friend_number = 0;
-            }
+            
             p_left[index]->Goal.push_back(Goal(Vector3<float>(-22, 9, 0), Vector3<float>(-22, -9, 0)));
             num++;
         }
     }// pedestrian
 
     for (float i = 0; i < 2; i++) {
-
-        unsigned int tempVBO;
-
         wall.push_back(new Wall(Vector3<float>(-22, 9 - 18 * i, 0), Vector3<float>(22, 9 - 18 * i, 0)));
-        glGenBuffers(1, &tempVBO);
-
-        VBO_Wall.push_back(tempVBO);
-
-        vertices = wall[i]->Spawn();
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO_Wall[i]);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
     } //wall
 
-    if (mode == 0) {
-        p_right[0]->friend_number = p_right[1];
-        p_right[1]->friend_number = p_right[0];
-
+    if (mode == Scenario::BOTTLENECK) {
         for (float i = 0; i < 2; i++) {
-
-            unsigned int tempVBO;
             wall.push_back(new Wall(Vector3<float>(0, -1 + 10 * i, 0), Vector3<float>(0, -9 + 10 * i, 0)));
-            glGenBuffers(1, &tempVBO);
-
-            VBO_Wall.push_back(tempVBO);
-
-            vertices = wall[i]->Spawn();
-            for (int j = 0; j < vertices.size(); j++)
-                glBindBuffer(GL_ARRAY_BUFFER, VBO_Wall[i]);
-            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
         }
     }
-    if (mode == 1) {
-        unsigned int tempVBO;
+    if (mode == Scenario::ATTRACTION) {
         wall.push_back(new Wall(Vector3<float>(-2, -9, 0), Vector3<float>(2, -9 , 0)));
-        glGenBuffers(1, &tempVBO);
-
-        VBO_Wall.push_back(tempVBO);
-        // std::cout << wall.size() << std::endl;
         all_p[0]->attractive_wall.push_back(wall[wall.size()-1]);
-        vertices = wall[0]->Spawn();
-        for (int j = 0; j < vertices.size(); j++)
-            glBindBuffer(GL_ARRAY_BUFFER, VBO_Wall[0]);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+        if(friend_mode == FriendType::WITH_FRIEND) 
+            p_right[1]->attractive_wall.push_back(wall[wall.size()-1]);
 
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
+    }
+    if(friend_mode == FriendType::WITH_FRIEND) {
+        p_right[0]->friend_number = p_right[1];
+        p_right[1]->friend_number = p_right[0];
     }
 }
 void init(){
@@ -163,10 +139,6 @@ void init(){
     
     graphics = new Graphics();
 
-    // 必須先綁定一個 VAO，否則 OpenGL 3.3 Core Profile 會無法繪圖
-    unsigned int VAO;
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
     Reset();
 }
 void render_GUI(){
@@ -175,12 +147,40 @@ void render_GUI(){
     ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     if (ImGui::Button("simulate")) 
         simu = true;
-    
-    if (ImGui::Button("Change mode")) {
+
+    const char* modes[] = {
+        "Normal",
+        "Bottleneck",
+        "Attraction-based",
+    };
+
+    static int current_mode = Scenario::NORMAL;
+    // static bool with_friend = false;
+
+    // Combo 選單
+    ImGui::Text("Select Scenario:");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(150);
+    if (ImGui::Combo("##Select Scenario", &current_mode, modes, IM_ARRAYSIZE(modes))) {
+        if (current_mode != mode) {
+            mode = current_mode;
+            simu = false;
+            Reset();
+        }
+    }
+
+    if (ImGui::Button(friend_mode ? "Enable 'with friend'" : "Disable 'with friend'")) {
+        friend_mode ^= 1;
         simu = false;
-        mode =(mode + 1) % 2;
         Reset();
     }
+
+    // 顯示目前的組合模式
+    ImGui::Text("Current Mode: %s Scenario %s",
+        modes[current_mode],
+        friend_mode == FriendType::WITHOUT_FRIEND ? "without friend" : "with friend");
+        
+    
     if (ImGui::Button("-")) {
         max_height--;
         if (max_height < 1) {
@@ -254,11 +254,11 @@ void render_scene() {
     }
 
     
-    unsigned int VAO;
+    unsigned int VAO, VBO;
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
     for (int i = 0; i < wall.size(); i++) {
-        if(mode==1 && i==wall.size()-1)
+        if(mode == Scenario::ATTRACTION && i==wall.size()-1)
             color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
         else
             color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
@@ -266,7 +266,8 @@ void render_scene() {
         shader->set_uniform("model", glm::mat4(1.0f));
 
         std::vector<float> vertices = wall[i]->Spawn();
-        glBindBuffer(GL_ARRAY_BUFFER, VBO_Wall[i]);
+        glGenBuffers(1, &VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
