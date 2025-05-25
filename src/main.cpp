@@ -4,7 +4,6 @@
 #include <bits/stdc++.h>
 
 #include "./header/Shader.h"
-#include "./header/Object.h"
 #include "./header/Graphics.hpp"
 
 #include <imgui.h>
@@ -16,6 +15,9 @@
 #include "./header/Wall.h"
 #include "./header/Control.h"
 #include "./header/Vec3.h"
+
+#define _mn first
+#define _mx second
 
 int SCR_HEIGHT = 800;
 int SCR_WIDTH = 1500;
@@ -47,6 +49,8 @@ int mode = Scenario::NORMAL;
 int friend_mode = FriendType::WITHOUT_FRIEND; // 是否有朋友
 bool simu = false;
 
+pair<float,float> r_desired_speed = {100, -1}; // mn, mx
+pair<float,float> l_desired_speed = {100, -1}; // mn, mx
 
 Graphics* graphics;
 std::vector<float> vertices;
@@ -61,18 +65,32 @@ void processInput(GLFWwindow* window) {
         glfwSetWindowShouldClose(window, true);
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
         Reset();
-    // if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-    //     mode = (mode + 1) % 2;
-    //     Reset();
-    // }
 }
 void All_Clear() {
+    // 釋放 p_right 中所有 Pedestrian 物件的記憶體
+    for (Pedestrian* p : p_right) {
+        if(p!=nullptr) delete p;
+    }
     p_right.clear();
+
+    // 釋放 p_left 中所有 Pedestrian 物件的記憶mory
+    for (Pedestrian* p : p_left) {
+        if(p!=nullptr) delete p;
+    }
     p_left.clear();
+
     all_p.clear();
+
+    // 釋放 wall 中所有 Wall 物件的記憶體
+    for (Wall* w : wall) {
+        delete w;
+    }
     wall.clear();
     vertices.clear();
     VBO_Wall.clear();
+
+    r_desired_speed = {100, -1}; // 重置右側行人的期望速度範圍
+    l_desired_speed = {100, -1}; // 重置左側行人的期望速度範圍
 }
 void Reset() {
     All_Clear();
@@ -95,6 +113,8 @@ void Reset() {
                 p_right[index]->Goal.push_back(Goal(Vector3<float>(0, 0.85, 0), Vector3<float>(0, -0.85, 0)));
 
             p_right[index]->Goal.push_back(Goal(Vector3<float>(22, 9, 0), Vector3<float>(22, -9, 0)));
+            r_desired_speed._mn = std::min(r_desired_speed._mn, p_right[index]->get_desired_speed());
+            r_desired_speed._mx = std::max(r_desired_speed._mx, p_right[index]->get_desired_speed());
 
             num++;
             tempp = new Pedestrian(0.2, Vector3<float>(15 + 1.5 * j, -5 + 1.5 * i, 0), 'l', num/*, tempVBO*/);
@@ -105,6 +125,8 @@ void Reset() {
                 p_left[index]->Goal.push_back(Goal(Vector3<float>(0, 0.85, 0), Vector3<float>(0, -0.85, 0)));
             
             p_left[index]->Goal.push_back(Goal(Vector3<float>(-22, 9, 0), Vector3<float>(-22, -9, 0)));
+            l_desired_speed._mn = std::min(l_desired_speed._mn, p_left[index]->get_desired_speed());
+            l_desired_speed._mx = std::max(l_desired_speed._mx, p_left[index]->get_desired_speed());
             num++;
         }
     }// pedestrian
@@ -180,7 +202,6 @@ void render_GUI(){
         modes[current_mode],
         friend_mode == FriendType::WITHOUT_FRIEND ? "without friend" : "with friend");
         
-    
     if (ImGui::Button("-")) {
         max_height--;
         if (max_height < 1) {
@@ -226,13 +247,19 @@ void render_scene() {
 
     glm::vec4 color;
     for (int j = 0; j < p_right.size(); j++) {
+        if(p_right[j]->is_live() == false) continue;
         if(p_right[j]->friend_number!=NULL || p_right[j]->attractive_wall.size()>0)
             color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
         else
             color = glm::vec4( 1.0f, 1.0f, 1.0f, 1.0f);
+
+        float v = p_right[j]->get_desired_speed();
+        float speed_normalized = (v - (r_desired_speed._mn) ) / (r_desired_speed._mx - (r_desired_speed._mn)) + 0.3f;
+        color = (float)speed_normalized * color;
         
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, p_right[j]->get_position());
+        // model = glm::scale(model, glm::vec3(v, v, v));
         
         shader->set_uniform("color", color);
         shader->set_uniform("model", model);
@@ -240,13 +267,19 @@ void render_scene() {
     }
 
     for (int j = 0; j < p_left.size(); j++) {
+        if(p_left[j]->is_live() == false) continue;
         if (p_left[j]->friend_number != NULL || p_left[j]->attractive_wall.size() > 0)
             color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
         else
-            color = glm::vec4( 0.0f, 1.0f, 0.0f, 1.0f);
+            color = glm::vec4( 1.0f, 0.0f, 0.0f, 1.0f);
+
+        float v = p_left[j]->get_desired_speed();
+        float speed_normalized = (v - (l_desired_speed._mn) ) / (l_desired_speed._mx - (l_desired_speed._mn)) + 0.3f;
+        color = (float)speed_normalized * color;
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, p_left[j]->get_position());
+        // model = glm::scale(model, glm::vec3(v, v, v));
 
         shader->set_uniform("color", color);
         shader->set_uniform("model", model);
