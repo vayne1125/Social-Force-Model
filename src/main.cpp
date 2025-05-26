@@ -33,6 +33,7 @@ int p_width = 4;
 int max_height = 8;
 int max_width = 4;
 int maxp = 8 * (max_width - 1) + max_height;
+float radius = 0.2f;
 
 enum Scenario {
     NORMAL,
@@ -45,6 +46,10 @@ enum FriendType {
 };
 
 int num = 0;
+
+float rear_repulsion_weight_factor = 0.8f; // 後方行人敏感度
+float front_repulsion_weight_factor = 1.0f; // 前方行人敏感度
+
 int mode = Scenario::NORMAL;
 int friend_mode = FriendType::WITHOUT_FRIEND; // 是否有朋友
 bool simu = false;
@@ -95,6 +100,7 @@ void All_Clear() {
 void Reset() {
     All_Clear();
     cout << "Reset" << endl;
+    simu = false;
     num = 0;
     for (int j = 0; j < p_width; j++) {
         for (int i = 0; i < p_height; i++) {
@@ -104,10 +110,12 @@ void Reset() {
             // glGenBuffers(1, &tempVBO);
             Pedestrian* tempp;
             int index = j * p_height + i;
-            tempp = new Pedestrian(0.2, Vector3<float>(-15 - 1.5 * j, -5 + 1.5 * i, 0), 'r', num/*, tempVBO*/);
+            tempp = new Pedestrian(radius, Vector3<float>(-15 - 1.5 * j, -5 + 1.5 * i, 0), 'r', num/*, tempVBO*/);
+            tempp->set_rear_repulsion_weight_factor(rear_repulsion_weight_factor);
+            tempp->set_front_repulsion_weight_factor(front_repulsion_weight_factor);
             p_right.push_back(tempp);
             all_p.push_back(p_right[index]);
-
+            
             // 中間的通道
             if (mode == Scenario::BOTTLENECK)
                 p_right[index]->Goal.push_back(Goal(Vector3<float>(0, 0.85, 0), Vector3<float>(0, -0.85, 0)));
@@ -117,7 +125,9 @@ void Reset() {
             r_desired_speed._mx = std::max(r_desired_speed._mx, p_right[index]->get_desired_speed());
 
             num++;
-            tempp = new Pedestrian(0.2, Vector3<float>(15 + 1.5 * j, -5 + 1.5 * i, 0), 'l', num/*, tempVBO*/);
+            tempp = new Pedestrian(radius, Vector3<float>(15 + 1.5 * j, -5 + 1.5 * i, 0), 'l', num/*, tempVBO*/);
+            tempp->set_rear_repulsion_weight_factor(rear_repulsion_weight_factor);
+            tempp->set_front_repulsion_weight_factor(front_repulsion_weight_factor);
             p_left.push_back(tempp);
             all_p.push_back(p_left[index]);
 
@@ -169,6 +179,9 @@ void render_GUI(){
     ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     if (ImGui::Button("simulate")) 
         simu = true;
+    ImGui::SameLine();
+    if (ImGui::Button("reset")) 
+        Reset();
 
     const char* modes[] = {
         "Normal",
@@ -177,7 +190,6 @@ void render_GUI(){
     };
 
     static int current_mode = Scenario::NORMAL;
-    // static bool with_friend = false;
 
     // Combo 選單
     ImGui::Text("Select Scenario:");
@@ -186,14 +198,12 @@ void render_GUI(){
     if (ImGui::Combo("##Select Scenario", &current_mode, modes, IM_ARRAYSIZE(modes))) {
         if (current_mode != mode) {
             mode = current_mode;
-            simu = false;
             Reset();
         }
     }
 
     if (ImGui::Button(friend_mode ? "Enable 'with friend'" : "Disable 'with friend'")) {
         friend_mode ^= 1;
-        simu = false;
         Reset();
     }
 
@@ -201,7 +211,31 @@ void render_GUI(){
     ImGui::Text("Current Mode: %s Scenario %s",
         modes[current_mode],
         friend_mode == FriendType::WITHOUT_FRIEND ? "without friend" : "with friend");
-        
+    
+    ImGui::NewLine();
+    ImGui::Text("Sensitivity to forces from front (0.0 = no reaction, 1.0 = full reaction):");
+    ImGui::SetNextItemWidth(150);
+    if(ImGui::SliderFloat("##Rear Repulsion Weight (front)", &front_repulsion_weight_factor, 0.0f, 1.0f, "%.2f")){
+        for(auto& p : all_p) {
+            if (p->is_live()) {
+                p->set_front_repulsion_weight_factor(front_repulsion_weight_factor);
+            }
+        }
+    }
+
+    ImGui::Text("Sensitivity to forces from behind (0.0 = no reaction, 1.0 = full reaction):");
+    ImGui::SetNextItemWidth(150);
+    if(ImGui::SliderFloat("##Rear Repulsion Weight (behind)", &rear_repulsion_weight_factor, 0.0f, 1.0f, "%.2f")){
+        for(auto& p : all_p) {
+            if (p->is_live()) {
+                p->set_rear_repulsion_weight_factor(rear_repulsion_weight_factor);
+            }
+        }
+    }
+    
+    ImGui::NewLine();
+    ImGui::Text("People number:");
+    ImGui::SameLine();
     if (ImGui::Button("-")) {
         max_height--;
         if (max_height < 1) {
@@ -253,13 +287,17 @@ void render_scene() {
         else
             color = glm::vec4( 1.0f, 1.0f, 1.0f, 1.0f);
 
-        float v = p_right[j]->get_desired_speed();
-        float speed_normalized = (v - (r_desired_speed._mn) ) / (r_desired_speed._mx - (r_desired_speed._mn)) + 0.3f;
-        color = (float)speed_normalized * color;
-        
+        if(p_right[j]->is_fall()) {
+            color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        }else{
+            float v = p_right[j]->get_desired_speed();
+            float speed_normalized = (v - (r_desired_speed._mn) ) / (r_desired_speed._mx - (r_desired_speed._mn)) + 0.3f;
+            color = (float)speed_normalized * color;
+        }
+
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, p_right[j]->get_position());
-        // model = glm::scale(model, glm::vec3(v, v, v));
+        model = glm::scale(model, glm::vec3(radius, radius, radius));
         
         shader->set_uniform("color", color);
         shader->set_uniform("model", model);
@@ -271,15 +309,19 @@ void render_scene() {
         if (p_left[j]->friend_number != NULL || p_left[j]->attractive_wall.size() > 0)
             color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
         else
-            color = glm::vec4( 1.0f, 0.0f, 0.0f, 1.0f);
-
-        float v = p_left[j]->get_desired_speed();
-        float speed_normalized = (v - (l_desired_speed._mn) ) / (l_desired_speed._mx - (l_desired_speed._mn)) + 0.3f;
-        color = (float)speed_normalized * color;
+            color = glm::vec4( 0.0f, 1.0f, 1.0f, 1.0f);
+        
+        if(p_left[j]->is_fall()) {
+            color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        }else{
+            float v = p_left[j]->get_desired_speed();
+            float speed_normalized = (v - (l_desired_speed._mn) ) / (l_desired_speed._mx - (l_desired_speed._mn)) + 0.3f;
+            color = (float)speed_normalized * color;
+        }
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, p_left[j]->get_position());
-        // model = glm::scale(model, glm::vec3(v, v, v));
+        model = glm::scale(model, glm::vec3(radius, radius, radius));
 
         shader->set_uniform("color", color);
         shader->set_uniform("model", model);
@@ -350,6 +392,7 @@ int main(void)
         if (simu) {
             deleteindex = ControllPedestrian(p_right, all_p, wall, deltaTime);
             deleteindex = ControllPedestrian(p_left, all_p, wall, deltaTime);
+            handle_collision(all_p, radius);
         }
         
         // IMGUI

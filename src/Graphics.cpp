@@ -15,7 +15,7 @@ void Graphics::make_circle(){
 	float aspect = 2000 / 1000; 
     glm::vec3 pos(0,0,0);
     int segement = 36;
-    float radius = 0.2f;
+    float radius = 1.0f;
 	vertices.push_back(pos.x);
 	vertices.push_back(pos.y);
 	vertices.push_back(pos.z);

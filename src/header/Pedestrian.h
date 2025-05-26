@@ -41,18 +41,30 @@ public:
 	  }
 	  float get_desired_speed() {
 		return desired_speed;
-		//   return (actual_velocity.norm() == 0)? desired_speed : actual_velocity.norm();
 	  }
 	  bool is_live() {
 		  return live;
 	  }
+	  void set_rear_repulsion_weight_factor(float factor) {
+		  rear_repulsion_weight_factor = factor;
+	  }
+	  void set_front_repulsion_weight_factor(float factor) {
+		  front_repulsion_weight_factor = factor;
+	  }
+	  bool is_fall() {
+		  return fall;
+	  }
+	  void set_fall() {
+		  fall = true;
+	  }
 private:
 	bool live = true;
+	bool fall = false; // 是否摔倒
 	bool destroy=false;
 	char direction;
 	bool Comput_Goal_Distance();
-	float CalculateRepulsiveForce(float rij, float distance);
-	float isNegative(float dis);
+	// float CalculateRepulsiveForce(float rij, float distance);
+	// float isNegative(float dis);
 	float radius;
 	float relaxation_time = 0.5f;
 	float max_speed;
@@ -62,13 +74,16 @@ private:
 	float K = 1.2f * pow(10, 5);
 	float k = 2.4f * pow(10, 5);
 
-	float A = 25;
+	// Specification of a Microscopic Pedestrian Model by Evolutionary p11, Table 1.
+	float A = 25; // 力的強度
 	float B = 1.07-0.55;
 	float Ai = 3;
 	float Bi = 5 - 0.55;
 	float sigma = 0.3f;
 	float attractive_time = 10;
 	int segement;
+	float rear_repulsion_weight_factor = 0.8f;
+	float front_repulsion_weight_factor = 1.0f;
 	Vector3<float>position;
 	Vector3<float> actual_velocity = Vector3<float>(0, 0, 0);
 	Vector3<float> edge;

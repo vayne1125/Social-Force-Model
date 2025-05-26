@@ -25,23 +25,8 @@ bool Pedestrian::ComputeForce(std::vector<Pedestrian*>& p,std::vector<Pedestrian
 			live = false;
 			return true;
 		}
-			// destroy = true;
 	}
-	// if (destroy) {
-	// 	auto it = std::find(all_p.begin(), all_p.end(), this);
-
-	// 	if (it != all_p.end()) {
-	// 		all_p.erase(it);
-	// 	}
-	// 	it = std::find(p.begin(), p.end(), this);
-	// 	if (it != p.end()) {
-	// 		p.erase(it);
-	// 	}
-	// 	if (friend_number != NULL)
-	// 		friend_number->friend_number = NULL;
-	// 	delete this;
-	// 	return true;
-	// }
+	
 	float goal_distance = std::numeric_limits<float>::max();
 	if (Goal_Number > 0)
 	{
@@ -77,32 +62,33 @@ bool Pedestrian::ComputeForce(std::vector<Pedestrian*>& p,std::vector<Pedestrian
 
 	// === 2 === //
 	for (int i = 0; i < all_p.size(); i++) {
+		if(all_p[i] == this) continue;
 		if(all_p[i]->is_live() == false) continue;
-		if (all_p[i] != this) {
+		if(all_p[i]->is_fall() == true) continue; // 跌倒直接踩過去w
 
-			Vector3<float> diff = position - all_p[i]->position;
-			Vector3<float> rel_vab = all_p[i]->velocity - velocity;
+		Vector3<float> diff = position - all_p[i]->position;
+		Vector3<float> rel_vab = all_p[i]->velocity - velocity;
 
-			float distance = diff.norm();
+		float distance = diff.norm();
 
-			// Specification of a Microscopic Pedestrian Model by Evolutionary p8. (12) 2b
-			// Calculate b (collision distance) 
-			// b 可以想成 "兩人快要撞上了嗎" 的衡量程度, b 越小表示他們 "即將撞上"
-			Vector3<float> future_diff = diff - rel_vab * (float)time;
-			float fab = pow((distance + future_diff.norm()),2)  - dot((rel_vab * (float)time), (rel_vab * (float)time));
-			float b = 0.5 * std::sqrt(fab);
+		// Specification of a Microscopic Pedestrian Model by Evolutionary p8. (12) 2b
+		// Calculate b (collision distance) 
+		// b 可以想成 "兩人快要撞上了嗎" 的衡量程度, b 越小表示他們 "即將撞上"
+		Vector3<float> future_diff = diff - rel_vab * (float)time;
+		float fab = pow((distance + future_diff.norm()),2)  - dot((rel_vab * (float)time), (rel_vab * (float)time));
+		float b = 0.5 * std::sqrt(fab);
 
-			// Specification of a Microscopic Pedestrian Model by Evolutionary p7. (11) vec_{g_ab}
-			// 他這邊把公式的 vec_{e_b} 換成 vec_{v_a} - vec_{v_b}
-			// Calculate repulsive force
-			Vector3<float> repulsive_force = A * exp(-b / B) * ((distance + future_diff.norm()) / (2 * b)) * (0.5f) * ((diff / diff.norm()) + (future_diff / future_diff.norm()));
-			if (friend_number != NULL && friend_number == all_p[i])
-				force = force + Weight(repulsive_force) * repulsive_force * 0.5f;
-			else
-				force = force + Weight(repulsive_force) * repulsive_force;
-
-		}//pedestrian
-	}
+		// Specification of a Microscopic Pedestrian Model by Evolutionary p7. (11) vec_{g_ab}
+		// 他這邊把公式的 vec_{e_b} 換成 vec_{v_a} - vec_{v_b}
+		// Calculate repulsive force
+		Vector3<float> repulsive_force = A * exp(-b / B) * ((distance + future_diff.norm()) / (2 * b)) * (0.5f) * ((diff / diff.norm()) + (future_diff / future_diff.norm()));
+		if (friend_number != NULL && friend_number == all_p[i])
+			force = force + Weight(Vector3f(0,0,0) - repulsive_force) * repulsive_force * 0.5f;
+		else
+			force = force + Weight(Vector3f(0,0,0) - repulsive_force) * repulsive_force;
+		
+		
+	}//pedestrian
 	
 	// === 3 === //
 	for (int i = 0; i < wall.size(); i++)
@@ -121,7 +107,7 @@ bool Pedestrian::ComputeForce(std::vector<Pedestrian*>& p,std::vector<Pedestrian
 
 		// Calculate repulsive force
 		Vector3<float> repulsive_force = A * exp(-b / B) * ((distance + future_diff.norm()) / (2 * b)) * (0.5f) * ((diff / diff.norm()) + (future_diff / future_diff.norm()));
-		force = force + Weight(repulsive_force) * repulsive_force;
+		force = force + Weight(Vector3f(0,0,0) - repulsive_force) * repulsive_force;
 	} //Obstacle
 	//attractive
 	for (int i = 0; i < all_p.size(); i++) {
@@ -205,42 +191,34 @@ void Pedestrian::ApplyForce(double time) {
 
 	if (actual_velocity.norm() > max_speed)
 	{
-
 		actual_velocity = (actual_velocity / actual_velocity.norm()) * max_speed;
 	}
 
 	position = position + actual_velocity * (float)time;
 	velocity = actual_velocity;
-
 }
+
 bool Pedestrian::Comput_Goal_Distance() {
 	Vector3<float>dir=Goal[Goal_Number].point2 - Goal[Goal_Number].point1;
 	Vector3<float> p_g = position - Goal[Goal_Number].point1;
 	return ((p_g - (dot(p_g, dir) / dot(dir, dir)) * dir).norm()<0.05f && dot(dir,p_g)>=0 && dot(Goal[Goal_Number].point1 - Goal[Goal_Number].point2, position - Goal[Goal_Number].point2) >= 0);
 }
+
 float Pedestrian::ClosePoint(Vector3<float>dir, Vector3<float> p_g) {
 	
 	float t = dot(p_g, dir) / dot(dir, dir);
 	
-	if (t < 0)
-		t = 0;
-	if (t > 1)
-		t = 1;
+	if (t < 0) t = 0;
+	else if (t > 1) t = 1;
 	
 	return t ;
 }
-// float Pedestrian::isNegative(float dis) {
 
-// 	return dis >= 0 ? dis : 0;
-// }
-// float Pedestrian::CalculateRepulsiveForce(float rij, float distance)
-// {
-// 	return Ai * exp((rij - distance) / Bi) + K * isNegative(rij - distance);
-	
-// }
 float Pedestrian::Weight(Vector3<float> repulsive_force) {
 	// Social force model for pedestrian dynamics p6. (7) w_{vec_{e}, vec_{f}}
-	// 期望去的方向和被施加的力的角度, 越正面權重越大
+	// 期望去的方向和"施加的力的方向的反向(a->b)"角度, 越正面權重越大
+	// 可以想成, 如果今天施力者在你的前方, 那你會抵抗它 (front_repulsion_weight_factor = 1.0f)
+	// 如果施力者在你的後方, 那你會不太抵抗它 (rear_repulsion_weight_factor = 0.8f)
 	// a --> 
 	//   \ 
 	//    b
@@ -267,11 +245,11 @@ float Pedestrian::Weight(Vector3<float> repulsive_force) {
 
 	// 如果夾角小於或等於閾值角度 (100度)，則權重為 1
 	if (angle_radians <= THRESHOLD_ANGLE_RADIANS) {
-		return 1;
+		return front_repulsion_weight_factor;
 	} else {
 		// 對後方行人的敏感度 (應該可以改值當作報告的一部分)
 		// 可能可以加個跌倒變成紅色 模擬踩踏事件
-		return 0.8f;
+		return rear_repulsion_weight_factor;
 	}
 	// if (dot(desired_direction, repulsive_force) >= repulsive_force.norm() * cos(100 * 3.14159 / 180))
 	// 	return 1;
