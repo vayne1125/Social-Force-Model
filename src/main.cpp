@@ -10,7 +10,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "./header/camera.h"
 #include "./header/Pedestrian.h"
 #include "./header/Wall.h"
 #include "./header/Control.h"
@@ -182,7 +181,8 @@ void render_GUI(){
     ImGui::SameLine();
     if (ImGui::Button("reset")) 
         Reset();
-
+    ImGui::SameLine();
+    ImGui::Text("Avg. speed: %0.3f", getAvgSpeed(all_p));
     const char* modes[] = {
         "Normal",
         "Bottleneck",
@@ -388,11 +388,10 @@ int main(void)
         render_scene();
         
         // SIMULATION
-        int deleteindex;
         if (simu) {
-            deleteindex = ControllPedestrian(p_right, all_p, wall, deltaTime);
-            deleteindex = ControllPedestrian(p_left, all_p, wall, deltaTime);
-            handle_collision(all_p, radius);
+            ControllPedestrian(p_right, all_p, wall, deltaTime);
+            ControllPedestrian(p_left, all_p, wall, deltaTime);
+            handleCollision(all_p, radius);
         }
         
         // IMGUI

@@ -3,12 +3,8 @@ Graphics::Graphics(){
     cout << "Graphics.cpp" << endl;
     
     make_circle(); 
-    make_wall();
 }
-void Graphics::make_wall(){
 
-
-}
 void Graphics::make_circle(){
     // Create a circle
     vector<float> vertices;
@@ -53,8 +49,3 @@ void Graphics::draw_circle(){
     glDrawArrays(GL_TRIANGLE_FAN, 0, circle_vertexCnt);
     // glBindVertexArray(0);
 }
-
-// void Graphics::change_color(int r, int g, int b){
-//     this->color = glm::vec3(r/255.0f,g/255.0f,b/255.0f);
-//     glUniform3fv(glGetUniformLocation(shader->ID, "co"), 1, glm::value_ptr(this->color));
-// }

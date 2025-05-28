@@ -7,13 +7,9 @@ using namespace std;
 class Graphics{
 public:
     void draw_circle();
-    void draw_wall();
-    // void change_color(int r, int g, int b);
     Graphics();
 private: 
     unsigned int circleVAO, wallVAO;
-    // glm::vec3 color;
     int circle_vertexCnt, wall_vertexCnt;
     void make_circle();
-    void make_wall();
 };

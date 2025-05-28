@@ -42,6 +42,13 @@ public:
 	  float get_desired_speed() {
 		return desired_speed;
 	  }
+	  glm::vec3 get_current_velocity() {
+		  glm::vec3 rt;
+		  rt.x = actual_velocity.x();
+		  rt.y = actual_velocity.y();
+		  rt.z = actual_velocity.z();
+		  return rt;
+	  }
 	  bool is_live() {
 		  return live;
 	  }
@@ -71,8 +78,6 @@ private:
 	float mean = 1.34f;
 	float standard_deviation = 0.26f;
 	float desired_speed = 0;
-	float K = 1.2f * pow(10, 5);
-	float k = 2.4f * pow(10, 5);
 
 	// Specification of a Microscopic Pedestrian Model by Evolutionary p11, Table 1.
 	float A = 25; // 力的強度

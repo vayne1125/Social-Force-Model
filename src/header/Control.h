@@ -1,20 +1,15 @@
 #pragma once
 #include"Pedestrian.h"
-int ControllPedestrian(std::vector<Pedestrian*> &p, std::vector<Pedestrian*>& all_p, std::vector<Wall* >& wall,  double time) {
+void ControllPedestrian(std::vector<Pedestrian*> &p, std::vector<Pedestrian*>& all_p, std::vector<Wall* >& wall,  double time) {
 	for (int i = 0; i < p.size(); i++) {
         if(p[i]->is_live() == false) continue;
 		if(p[i]->is_fall() == true) continue;
-
-		if (p[i]->ComputeForce(p, all_p, wall, time)) {
-			// std::cout << "asd" << std::endl;
-			return i;
-		}
+		p[i]->ComputeForce(p, all_p, wall, time);
 		p[i]->ApplyForce(time);
 	}
-	return -1;
 }
 
-void handle_collision(std::vector<Pedestrian*>& all_p, float radius) {
+void handleCollision(std::vector<Pedestrian*>& all_p, float radius) {
 	for (int i = 0; i < all_p.size(); i++) {
 		if(all_p[i]->is_live() == false) continue;
 		if(all_p[i]->is_fall() == true) continue;
@@ -29,4 +24,20 @@ void handle_collision(std::vector<Pedestrian*>& all_p, float radius) {
 			}
 		}
 	}
+}
+
+float getAvgSpeed(std::vector<Pedestrian*>& all_p) {
+	float total_speed = 0.0f;
+	int cnt = 0;
+	for (int i = 0; i < all_p.size(); i++) {
+        if(all_p[i]->is_live() == false) continue;
+		if(all_p[i]->is_fall() == true) continue;
+		total_speed += glm::length(all_p[i]->get_current_velocity());
+        cnt++;
+	}
+	if (cnt > 0) {
+        total_speed /= cnt;
+		return total_speed;
+	}
+	return 0.0f;
 }
