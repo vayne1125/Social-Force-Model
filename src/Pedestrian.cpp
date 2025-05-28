@@ -134,7 +134,7 @@ bool Pedestrian::ComputeForce(std::vector<Pedestrian*>& p,std::vector<Pedestrian
 			actual_velocity = desired_direction;
 		}
 		// 離朋友太遠 -> 施加吸引力
-		if (distance >= 3 * radius)
+		if (distance >= 2.5 * radius)
 			force = force + Weight(repulsive_force) * repulsive_force;
 	}//pedestrian
 	

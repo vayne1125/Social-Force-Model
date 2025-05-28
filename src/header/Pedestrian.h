@@ -42,6 +42,10 @@ public:
 	  float get_desired_speed() {
 		return desired_speed;
 	  }
+	  void set_desired_speed(float speed) {
+		  desired_speed = speed;
+		  max_speed = 1.3 * desired_speed;
+	  }
 	  glm::vec3 get_current_velocity() {
 		  glm::vec3 rt;
 		  rt.x = actual_velocity.x();

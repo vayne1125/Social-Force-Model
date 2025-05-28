@@ -159,6 +159,11 @@ void Reset() {
     if(friend_mode == FriendType::WITH_FRIEND) {
         p_right[0]->friend_number = p_right[1];
         p_right[1]->friend_number = p_right[0];
+        float f_v = p_right[0]->get_desired_speed();
+        f_v += p_right[1]->get_desired_speed();
+        f_v /= 2.0f;
+        p_right[0]->set_desired_speed(1.05 * f_v);
+        p_right[1]->set_desired_speed(0.98 * f_v);
     }
 }
 void init(){
